@@ -7,11 +7,17 @@ __pycache__/
 venv/
 env/
 .env
+.env.local
 
 # IDE
 .vscode/
 .idea/
 
+# Next.js
+.next/
+out/
+build/
+node_modules/
+
 # Misc
 .DS_Store
-node_modules
