@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YouTube Transcript Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        .input-group {
+            margin: 20px 0;
+        }
+        input[type="text"] {
+            width: 70%;
+            padding: 10px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:disabled {
+            background: #ccc;
+        }
+        #transcript {
+            white-space: pre-wrap;
+            background: #f5f5f5;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        .error {
+            color: red;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>YouTube Transcript Generator</h1>
+    <div class="input-group">
+        <input type="text" id="url" placeholder="Enter YouTube URL">
+        <button onclick="getTranscript()" id="fetchBtn">Get Transcript</button>
+    </div>
+    <div id="error" class="error"></div>
+    <div id="transcript"></div>
+
+    <script>
+        async function getTranscript() {
+            const url = document.getElementById('url').value;
+            const button = document.getElementById('fetchBtn');
+            const error = document.getElementById('error');
+            const transcript = document.getElementById('transcript');
+
+            if (!url) {
+                error.textContent = 'Please enter a YouTube URL';
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = 'Fetching...';
+            error.textContent = '';
+            transcript.textContent = '';
+
+            try {
+                const response = await fetch('http://localhost:5000/transcript', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    transcript.textContent = data.transcript;
+                } else {
+                    error.textContent = data.error || 'Failed to fetch transcript';
+                }
+            } catch (err) {
+                error.textContent = 'Error connecting to server';
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Get Transcript';
+            }
+        }
+    </script>
+</body>
+</html>
