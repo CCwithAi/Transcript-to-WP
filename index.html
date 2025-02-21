@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>CCwithAI YouTube Transcript Repurposing</title>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -10,8 +11,6 @@
             padding: 20px;
             background-color: #f0f2f5;
         }
-            
-        
         .header {
             display: flex;
             align-items: center;
@@ -38,7 +37,7 @@
             gap: 15px;
             margin-bottom: 20px;
         }
-        input[type="text"], select {
+        input[type="text"], select, input[type="password"] {
             width: 100%;
             padding: 12px;
             border: 1px solid #ccc;
@@ -62,16 +61,32 @@
             background: #ccc;
             cursor: not-allowed;
         }
+
+        /* --- Quill-Specific Styles --- */
+        #editor-container {
+            width: 100%;
+            margin-top: 15px; /* Space below the WP credentials */
+        }
+
         #transcript {
-            white-space: pre-wrap;
-            background: #ffffff;
-            padding: 25px;
-            margin-top: 25px;
+            width: 100%;
+            min-height: 200px;
+            border: 1px solid #ccc;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             font-size: 1em;
             color: #333;
+            /* No padding here - Quill handles it */
+            box-sizing: border-box; /* Important for consistent sizing */
         }
+
+        #transcript .ql-editor {
+            padding: 12px; /* Padding *inside* the editor */
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
         .error {
             color: red;
             margin: 15px 0;
@@ -83,6 +98,14 @@
         }
         #copyBtn:hover {
             background: #218838;
+        }
+        #postToWpBtn {
+            margin-top: 15px;
+            background: #4CAF50; /* Green color */
+        }
+
+        #postToWpBtn:hover {
+            background: #367c39;
         }
         .banner {
             width: 100%;
@@ -133,16 +156,57 @@
         </select>
         <button onclick="getTranscript()" id="fetchBtn">Get Transcript</button>
     </div>
+
+    <div class="input-group">
+        <input type="text" id="wpUsername" placeholder="WordPress Username">
+        <input type="password" id="wpPassword" placeholder="WordPress Application Password">
+        <input type="text" id="wpSiteURL" placeholder="WordPress Site URL (e.g., https://example.com)">
+        <button onclick="postToWordPress()" id="postToWpBtn" disabled>Post to WordPress</button>
+    </div>
+
     <div id="error" class="error"></div>
-    <div id="transcript"></div>
+
+    <div id="editor-container">
+        <div id="transcript"></div>
+    </div>
+
     <button onclick="copyTranscript()" id="copyBtn">Copy Transcript</button>
 
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
     <script>
+        // Initialize Quill
+        var quill = new Quill('#transcript', {
+            theme: 'snow',  // Use the "snow" theme
+            modules: {
+                toolbar: [
+                    ['bold', 'italic', 'underline', 'strike'],        // toggled buttons
+                    ['blockquote', 'code-block'],
+
+                    [{ 'header': 1 }, { 'header': 2 }],               // custom button values
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    [{ 'script': 'sub'}, { 'script': 'super' }],      // superscript/subscript
+                    [{ 'indent': '-1'}, { 'indent': '+1' }],          // outdent/indent
+                    [{ 'direction': 'rtl' }],                         // text direction
+
+                    [{ 'size': ['small', false, 'large', 'huge'] }],  // custom dropdown
+                    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+
+                    [{ 'color': [] }, { 'background': [] }],          // dropdown with defaults from theme
+                    [{ 'font': [] }],
+                    [{ 'align': [] }],
+
+                    ['clean'],                                         // remove formatting button
+                    ['link', 'image', 'video']  // Add link, image, and video support
+                ]
+            }
+        });
+
         async function getTranscript() {
             const url = document.getElementById('url').value;
             const button = document.getElementById('fetchBtn');
             const error = document.getElementById('error');
-            const transcript = document.getElementById('transcript');
+            const postToWpBtn = document.getElementById('postToWpBtn');
 
             if (!url) {
                 error.textContent = 'Please enter a YouTube URL';
@@ -152,11 +216,10 @@
             button.disabled = true;
             button.textContent = 'Fetching...';
             error.textContent = '';
-            transcript.textContent = '';
+            postToWpBtn.disabled = true;
 
             try {
                 const modelValue = document.getElementById('model').value;
-                console.log("Selected model:", modelValue);
                 const response = await fetch('http://localhost:5000/transcript', {
                     method: 'POST',
                     headers: {
@@ -167,7 +230,9 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    transcript.textContent = data.transcript.replace(/<think>.*?<\/think>/g, '');
+                    // Set the *HTML content* of Quill
+                    quill.root.innerHTML = data.transcript;
+                    postToWpBtn.disabled = false;
                 } else {
                     error.textContent = data.error || 'Failed to fetch transcript';
                 }
@@ -178,8 +243,9 @@
                 button.textContent = 'Get Transcript';
             }
         }
-        async function copyTranscript() {
-            const transcriptText = document.getElementById('transcript').textContent;
+
+       async function copyTranscript() {
+            const transcriptText = quill.getText(); // Use Quill's getText() for plain text
             try {
                 await navigator.clipboard.writeText(transcriptText);
                 const copyButton = document.getElementById('copyBtn');
@@ -189,6 +255,58 @@
                 }, 2000);
             } catch (err) {
                 console.error('Failed to copy: ', err);
+            }
+        }
+
+        async function postToWordPress() {
+            const wpUsername = document.getElementById('wpUsername').value;
+            const wpPassword = document.getElementById('wpPassword').value;
+            const wpSiteURL = document.getElementById('wpSiteURL').value;
+            const postContent = quill.root.innerHTML; // Get the *HTML content* from Quill
+            const error = document.getElementById('error');
+            const postToWpBtn = document.getElementById('postToWpBtn');
+
+            if (!wpUsername || !wpPassword || !wpSiteURL) {
+                error.textContent = 'Please fill in all WordPress credentials.';
+                return;
+            }
+             if (!postContent) {
+                error.textContent = 'No content to post. Please fetch transcript first.';
+                return;
+            }
+
+            postToWpBtn.disabled = true;
+            postToWpBtn.textContent = 'Posting...';
+            error.textContent = '';
+
+            try {
+                const response = await fetch('http://localhost:5000/post-to-wordpress', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: wpUsername,
+                        password: wpPassword,
+                        siteURL: wpSiteURL,
+                        title: "Generated Post from YouTube Transcript",
+                        content: postContent,  //Send the HTML
+                        status: 'draft'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    error.textContent = `Post created! Post ID: ${data.postId}`;
+                } else {
+                    error.textContent = data.error || 'Failed to post to WordPress';
+                }
+            } catch (err) {
+                error.textContent = 'Error connecting to server';
+            } finally {
+                postToWpBtn.disabled = false;
+                postToWpBtn.textContent = 'Post to WordPress';
             }
         }
     </script>

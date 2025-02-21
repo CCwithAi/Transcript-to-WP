@@ -22,18 +22,26 @@ Maintain a casual, conversational tone, using 'I,' 'my,' 'we,' and 'our' to crea
 
 Structure the blog post to be at least 800 words, following best SEO practices based on Google guidelines, and include:
 
-- Introduction: An engaging hook, overview of the topic, and thesis statement.
-- Main Content: Key points, personal anecdotes, and actionable insights.
-- Conclusion: Summary, call-to-action, and final thoughts.
+- Introduction: An engaging hook, overview of the topic, and thesis statement.  Wrap the entire introduction in a single <p> tag.
+- Main Content: Key points, personal anecdotes, and actionable insights.  Use appropriate HTML tags for formatting:
+    - Wrap paragraphs in single<p> tags, be careful not to make extra spacing.
+    - Use <h2>, <h3>, and <h4> tags for subheadings.
+    - Use <ul> and <ol> tags for unordered and ordered lists, respectively, with <li> tags for list items.
+    - Use <strong> for bold text and <em> for italicized text where appropriate for emphasis.
+    - If quotes are relevant, use <blockquote> tags.
+- Conclusion: Summary, call-to-action, and final thoughts. Wrap the entire conclusion in a single <p> tag.
 
 Optimize for SEO:
 
 - Use natural keyword placement.
-- Include subheadings (H2, H3) for better readability.
 - Ensure content is people-first, focusing on user intent and value.
 - Avoid jargon and overly technical language.
 
 Ensure the blog post is free of errors, flows naturally, uses UK English spelling and grammar throughout, and adds a personal touch with a relatable and engaging tone.
+
+Output ONLY valid HTML. Do not include any Markdown or other formatting languages. Do not include <html>, <head>, or <body> tags.  The output should be ready to be inserted directly into a WordPress post body.
+
+**EXTREMELY IMPORTANT:** Do NOT nest <p> tags within other <p> tags.  Each paragraph should be enclosed in ONE and ONLY ONE set of <p> tags.  Do NOT include any extra whitespace or newline characters between HTML tags. The output should be compact and well-formed HTML.**
 """,
 
     "step_by_step_guide": """You are a helpful assistant that generates step-by-step guides from YouTube transcripts. Focus on extracting actionable steps and providing clear, concise instructions. Use numbered lists and headings to organize the guide effectively. Do not include ` or display your thoughts in the output.""",
@@ -83,12 +91,12 @@ MODEL_CONFIGS = {
 def _call_api(prompt_name: str, transcript: str, model: str = "gpt-4o") -> str:
     """
     Helper function to call different AI models based on the specified configuration.
-    
+
     Args:
         prompt_name: Name of the system prompt to use
         transcript: YouTube transcript text
         model: Name of the model to use (default: "gpt-4o")
-    
+
     Returns:
         Generated content from the AI model
     """
@@ -151,7 +159,7 @@ def _call_api(prompt_name: str, transcript: str, model: str = "gpt-4o") -> str:
         return f"API call failed: {str(e)}"
 
 def generate_blog_post(transcript: str, model: str = "gpt-4o") -> str:
-    """Generates a blog post from the given transcript using the specified model."""
+    """Generates an HTML-formatted blog post."""
     return _call_api("blog_post", transcript, model)
 
 def generate_step_by_step_guide(transcript: str, model: str = "gpt-4o") -> str:
