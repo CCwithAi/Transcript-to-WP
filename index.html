@@ -4,6 +4,7 @@
     <title>CCwithAI YouTube Transcript Repurposing</title>
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <style>
+        /* ... (Your existing CSS styles - no changes needed here) ... */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             max-width: 800px;
@@ -37,7 +38,7 @@
             gap: 15px;
             margin-bottom: 20px;
         }
-        input[type="text"], select, input[type="password"] {
+        input[type="text"], select, input[type="password"], input[type="file"] {
             width: 100%;
             padding: 12px;
             border: 1px solid #ccc;
@@ -128,16 +129,13 @@
         .banner img:hover {
             transform: scale(1.09);
         }
-
     </style>
 </head>
 <body>
     <div class="banner">
-        <img src="images/photostudio_1733259578300.jpeg" alt="Banner Image">
-    </div>
+        <img src="images/photostudio_1733259578300.jpeg" alt="Banner Image">  </div>
     <div class="header">
-        <img src="images/ccailogoblackbackground.png" alt="CCwithAI Logo">
-        <h1>CCwithAI Transcript Repurposing</h1>
+        <img src="images/ccailogoblackbackground.png" alt="CCwithAI Logo">  <h1>CCwithAI Transcript Repurposing</h1>
     </div>
     <div class="input-group">
         <input type="text" id="url" placeholder="Enter YouTube URL">
@@ -152,8 +150,7 @@
             <option value="gpt-4o">GPT-4o</option>
             <option value="deepseek-r1-distill-llama-70b">DeepSeek R1 70B</option>
             <option value="llama-3-70b-versatile">Llama 3 70b Versatile</option>
-            <option value="gemini">Gemini 2.0 Pro Exp 02-05</option>
-        </select>
+            <option value="gemini">Gemini 2.0 Pro Exp 02-05</option> </select>
         <button onclick="getTranscript()" id="fetchBtn">Get Transcript</button>
     </div>
 
@@ -161,8 +158,17 @@
         <input type="text" id="wpUsername" placeholder="WordPress Username">
         <input type="password" id="wpPassword" placeholder="WordPress Application Password">
         <input type="text" id="wpSiteURL" placeholder="WordPress Site URL (e.g., https://example.com)">
-        <button onclick="postToWordPress()" id="postToWpBtn" disabled>Post to WordPress</button>
+        <button onclick="savePost()" id="savePostBtn" disabled>Save Post</button>
+        <button onclick="postToWordPress()" id="postToWpBtn" disabled>Post to WordPress</button>  </div>
+
+      <div class="input-group">
+         <input type="text" id="postTitle" placeholder="Enter Post Title">
     </div>
+
+    <div class="input-group">
+        <input type="file" id="featuredImage" accept="image/*">
+    </div>
+
 
     <div id="error" class="error"></div>
 
@@ -175,29 +181,25 @@
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
     <script>
-        // Initialize Quill
+// Initialize Quill
         var quill = new Quill('#transcript', {
-            theme: 'snow',  // Use the "snow" theme
+            theme: 'snow',
             modules: {
                 toolbar: [
-                    ['bold', 'italic', 'underline', 'strike'],        // toggled buttons
+                    ['bold', 'italic', 'underline', 'strike'],
                     ['blockquote', 'code-block'],
-
-                    [{ 'header': 1 }, { 'header': 2 }],               // custom button values
+                    [{ 'header': 1 }, { 'header': 2 }],
                     [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                    [{ 'script': 'sub'}, { 'script': 'super' }],      // superscript/subscript
-                    [{ 'indent': '-1'}, { 'indent': '+1' }],          // outdent/indent
-                    [{ 'direction': 'rtl' }],                         // text direction
-
-                    [{ 'size': ['small', false, 'large', 'huge'] }],  // custom dropdown
+                    [{ 'script': 'sub'}, { 'script': 'super' }],
+                    [{ 'indent': '-1'}, { 'indent': '+1' }],
+                    [{ 'direction': 'rtl' }],
+                    [{ 'size': ['small', false, 'large', 'huge'] }],
                     [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-
-                    [{ 'color': [] }, { 'background': [] }],          // dropdown with defaults from theme
+                    [{ 'color': [] }, { 'background': [] }],
                     [{ 'font': [] }],
                     [{ 'align': [] }],
-
-                    ['clean'],                                         // remove formatting button
-                    ['link', 'image', 'video']  // Add link, image, and video support
+                    ['clean'],
+                    ['link', 'image', 'video']
                 ]
             }
         });
@@ -207,6 +209,8 @@
             const button = document.getElementById('fetchBtn');
             const error = document.getElementById('error');
             const postToWpBtn = document.getElementById('postToWpBtn');
+            const savePostBtn = document.getElementById('savePostBtn');
+
 
             if (!url) {
                 error.textContent = 'Please enter a YouTube URL';
@@ -217,6 +221,7 @@
             button.textContent = 'Fetching...';
             error.textContent = '';
             postToWpBtn.disabled = true;
+            savePostBtn.disabled = true;
 
             try {
                 const modelValue = document.getElementById('model').value;
@@ -230,9 +235,10 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    // Set the *HTML content* of Quill
-                    quill.root.innerHTML = data.transcript;
+                    quill.root.innerHTML = data.transcript; // Set the HTML content
                     postToWpBtn.disabled = false;
+                    savePostBtn.disabled = false;
+
                 } else {
                     error.textContent = data.error || 'Failed to fetch transcript';
                 }
@@ -244,8 +250,10 @@
             }
         }
 
-       async function copyTranscript() {
-            const transcriptText = quill.getText(); // Use Quill's getText() for plain text
+
+
+        async function copyTranscript() {
+            const transcriptText = quill.getText();  // Use getText() for plain text
             try {
                 await navigator.clipboard.writeText(transcriptText);
                 const copyButton = document.getElementById('copyBtn');
@@ -257,29 +265,45 @@
                 console.error('Failed to copy: ', err);
             }
         }
-
-        async function postToWordPress() {
+        async function savePost() {
             const wpUsername = document.getElementById('wpUsername').value;
             const wpPassword = document.getElementById('wpPassword').value;
             const wpSiteURL = document.getElementById('wpSiteURL').value;
-            const postContent = quill.root.innerHTML; // Get the *HTML content* from Quill
+            const postTitle = document.getElementById('postTitle').value;
+            const featuredImageInput = document.getElementById('featuredImage');
             const error = document.getElementById('error');
-            const postToWpBtn = document.getElementById('postToWpBtn');
+            const savePostBtn = document.getElementById('savePostBtn');
+            const format = document.getElementById('format').value; // Get selected format
 
-            if (!wpUsername || !wpPassword || !wpSiteURL) {
-                error.textContent = 'Please fill in all WordPress credentials.';
-                return;
-            }
-             if (!postContent) {
-                error.textContent = 'No content to post. Please fetch transcript first.';
+
+            if (!wpUsername || !wpPassword || !wpSiteURL || !postTitle) {
+                error.textContent = 'Please fill in all WordPress credentials and the post title.';
                 return;
             }
 
-            postToWpBtn.disabled = true;
-            postToWpBtn.textContent = 'Posting...';
+            if (quill.getText().trim() === '') {
+                error.textContent = "Cannot save an empty post.";
+                return;
+            }
+
+            savePostBtn.disabled = true;
+            savePostBtn.textContent = 'Saving...';
             error.textContent = '';
 
             try {
+                let imageData = null;
+                if (featuredImageInput.files.length > 0) {
+                    const imageFile = featuredImageInput.files[0];
+                    imageData = await fileToBase64(imageFile);
+                }
+
+              //get the model again
+               const modelValue = document.getElementById('model').value;
+               const url = document.getElementById('url').value;
+
+                // Get Quill's HTML content *only for non-block formats*
+                let postContent = quill.root.innerHTML;
+
                 const response = await fetch('http://localhost:5000/post-to-wordpress', {
                     method: 'POST',
                     headers: {
@@ -289,9 +313,11 @@
                         username: wpUsername,
                         password: wpPassword,
                         siteURL: wpSiteURL,
-                        title: "Generated Post from YouTube Transcript",
-                        content: postContent,  //Send the HTML
-                        status: 'draft'
+                        title: postTitle,
+                        content: postContent, // Send HTML or plain text
+                        status: 'draft',
+                        image: imageData,
+                        format: format,
                     })
                 });
 
@@ -304,10 +330,32 @@
                 }
             } catch (err) {
                 error.textContent = 'Error connecting to server';
+                console.error(err);
             } finally {
-                postToWpBtn.disabled = false;
-                postToWpBtn.textContent = 'Post to WordPress';
+                savePostBtn.disabled = false;
+                savePostBtn.textContent = 'Save Post';
             }
+        }
+
+
+
+        async function postToWordPress(){
+          alert("Please use the save functionality.")
+        }
+
+
+        // Helper function to convert a File object to a Base64 string (and get filename/type)
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve({
+                        filename: file.name,
+                        mime_type: file.type,
+                        data: reader.result.split(',')[1]  // Just the Base64 data
+                    });
+                reader.onerror = error => reject(error);
+            });
         }
     </script>
 </body>

@@ -4,6 +4,7 @@ from openai import OpenAI
 from groq import Groq
 from youtube_transcript_api import YouTubeTranscriptApi
 import google.generativeai as genai
+import re  # Import the regular expression module
 
 load_dotenv()
 
@@ -12,107 +13,58 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 groq_api_key = os.getenv("GROQ_API_KEY")
 
-# Define system prompts
+# Define system prompts (Simplified - No Block Instructions)
 SYSTEM_PROMPTS = {
-    "blog_post": """Convert the given YouTube transcript and any provided context into a first-person blog post.
+    "blog_post": """Convert the given YouTube transcript into a first-person blog post.
 
-Remove all branding, broadcaster names, YouTube-specific references, and calls to action such as 'subscribe' or 'like the video.'
+Remove all branding, broadcaster names, YouTube-specific references, and calls to action.
 
-Maintain a casual, conversational tone, using 'I,' 'my,' 'we,' and 'our' to create a personal connection with the reader.
+Maintain a casual, conversational tone. Structure the post with:
 
-Structure the blog post to be at least 800 words, following best SEO practices based on Google guidelines, and include:
+- An introduction (1-2 paragraphs).
+- Several main sections, each with a clear heading (like an H2) and 2-4 paragraphs.
+- A conclusion (1-2 paragraphs).
 
-- Introduction: An engaging hook, overview of the topic, and thesis statement.  Wrap the entire introduction in a single <p> tag.
-- Main Content: Key points, personal anecdotes, and actionable insights.  Use appropriate HTML tags for formatting:
-    - Wrap paragraphs in single<p> tags, be careful not to make extra spacing.
-    - Use <h2>, <h3>, and <h4> tags for subheadings.
-    - Use <ul> and <ol> tags for unordered and ordered lists, respectively, with <li> tags for list items.
-    - Use <strong> for bold text and <em> for italicized text where appropriate for emphasis.
-    - If quotes are relevant, use <blockquote> tags.
-- Conclusion: Summary, call-to-action, and final thoughts. Wrap the entire conclusion in a single <p> tag.
-
-Optimize for SEO:
-
-- Use natural keyword placement.
-- Ensure content is people-first, focusing on user intent and value.
-- Avoid jargon and overly technical language.
-
-Ensure the blog post is free of errors, flows naturally, uses UK English spelling and grammar throughout, and adds a personal touch with a relatable and engaging tone.
-
-Output ONLY valid HTML. Do not include any Markdown or other formatting languages. Do not include <html>, <head>, or <body> tags.  The output should be ready to be inserted directly into a WordPress post body.
-
-**EXTREMELY IMPORTANT:** Do NOT nest <p> tags within other <p> tags.  Each paragraph should be enclosed in ONE and ONLY ONE set of <p> tags.  Do NOT include any extra whitespace or newline characters between HTML tags. The output should be compact and well-formed HTML.**
+Use UK English spelling and grammar.  Output plain text, well-formatted with paragraphs and headings. Do *not* output JSON or Markdown. Focus on the *content*; do not include any HTML tags.
 """,
 
-    "step_by_step_guide": """You are a helpful assistant that generates step-by-step guides from YouTube transcripts. Focus on extracting actionable steps and providing clear, concise instructions. Use numbered lists and headings to organize the guide effectively. Do not include ` or display your thoughts in the output.""",
+    "step_by_step_guide": """Create a step-by-step guide from the YouTube transcript.
 
-    "summary": """You are a helpful assistant that summarizes YouTube video transcripts. Summarize the transcript into three bullet points to sum up what the video is about and why someone should watch it.""",
+Focus on actionable steps and clear instructions. Use numbered lists and headings to organize the guide. Output plain text, with headings clearly indicating sections, and numbered lists where appropriate. Do *not* output JSON or Markdown. Focus on the *content*; do not include any HTML tags.
+""",
 
-    "educator_plus": '''You are a helpful assistant designed to create educational materials from YouTube transcripts.
+    "summary": """Summarize the YouTube video transcript into three bullet points. Output plain text using '-' to denote bullet points. Do *not* output JSON or HTML.""",
+
+    "educator_plus": '''You are a helpful assistant to create educational materials from YouTube transcripts.
 
 Tasks:
 
-1. Create a Fill-in-the-Blank Worksheet from the transcript, focusing on key concepts. Provide answers at the end.
-2. Create a Quiz (multiple choice or short answer) based on the transcript. Provide answers at the end.
-3. Find three supplemental resources (links) related to the video's topic.
-4. Combine the worksheet, quiz, and resources in markdown format.'''
+1. Create a Fill-in-the-Blank Worksheet. Provide answers.
+2. Create a Quiz (multiple choice/short answer). Provide answers.
+3. Find three supplemental resources (links).
+4. Combine the worksheet, quiz, and resources in markdown format. Output plain text/markdown, not JSON.''',
 }
 
-# Define model configurations
+# Define model configurations (Simplified)
 MODEL_CONFIGS = {
-    "gpt-4o": {
-        "client": "openai",
-        "model": "gpt-4o",
-    },
-    "deepseek-r1-distill-llama-70b": {
-        "client": "groq",
-        "model": "deepseek-r1-distill-llama-70b",
-        "temperature": 0.1,
-        "max_completion_tokens": 4096,
-        "top_p": 0.95,
-        "stream": False,
-        "stop": None,
-    },
-    "gemini": {
-        "client": "gemini",
-        "model": "gemini-2.0-pro-exp-02-05",
-    },
-    "llama-3-70b-versatile": {
-            "client": "groq",
-            "model": "llama3-70b-8192",
-            "temperature": 0.1,
-            "max_completion_tokens": 1024,
-            "top_p": 1,
-            "stream": False,
-            "stop": None,
-        },
+    "gpt-4o": {"client": "openai", "model": "gpt-4o"},
+    "deepseek-r1-distill-llama-70b": {"client": "groq", "model": "deepseek-r1-distill-llama-70b"},
+    "gemini": {"client": "gemini", "model": "gemini-2.0-pro-exp-02-05"}, # CORRECTED MODEL
+    "llama-3-70b-versatile": {"client": "groq", "model": "llama3-70b-8192"},
 }
+
 
 def _call_api(prompt_name: str, transcript: str, model: str = "gpt-4o") -> str:
-    """
-    Helper function to call different AI models based on the specified configuration.
+    """Helper function to call AI models (simplified)."""
+    config = MODEL_CONFIGS.get(model)
+    if not config:
+        return "Invalid model selected."
 
-    Args:
-        prompt_name: Name of the system prompt to use
-        transcript: YouTube transcript text
-        model: Name of the model to use (default: "gpt-4o")
+    prompt = SYSTEM_PROMPTS.get(prompt_name)
+    if not prompt:
+        return "Invalid prompt name."
 
-    Returns:
-        Generated content from the AI model
-    """
     try:
-        # Get model configuration
-        print(f"Model received by _call_api: {model=}")
-        config = MODEL_CONFIGS.get(model)
-        if not config:
-            return "Invalid model selected."
-
-        # Get system prompt
-        prompt = SYSTEM_PROMPTS.get(prompt_name)
-        if not prompt:
-            return "Invalid prompt name."
-
-        # Call the appropriate API based on client type
         if config["client"] == "openai":
             client = OpenAI(api_key=openai_api_key)
             response = client.chat.completions.create(
@@ -126,25 +78,14 @@ def _call_api(prompt_name: str, transcript: str, model: str = "gpt-4o") -> str:
 
         elif config["client"] == "groq":
             client = Groq(api_key=groq_api_key)
-            completion = client.chat.completions.create(
+            response = client.chat.completions.create(
                 model=config["model"],
                 messages=[
                     {"role": "system", "content": prompt},
                     {"role": "user", "content": transcript},
                 ],
-                temperature=config.get("temperature"),
-                max_completion_tokens=config.get("max_completion_tokens"),
-                top_p=config.get("top_p"),
-                stream=config.get("stream"),
-                stop=config.get("stop"),
             )
-            if config.get("stream"):
-                full_response = ""
-                for chunk in completion:
-                    full_response += chunk.choices[0].delta.content or ""
-                return full_response
-            else:
-                return completion.choices[0].message.content
+            return response.choices[0].message.content
 
         elif config["client"] == "gemini":
             genai.configure(api_key=gemini_api_key)
@@ -154,31 +95,30 @@ def _call_api(prompt_name: str, transcript: str, model: str = "gpt-4o") -> str:
 
         else:
             return "Invalid client configuration."
-
     except Exception as e:
         return f"API call failed: {str(e)}"
 
 def generate_blog_post(transcript: str, model: str = "gpt-4o") -> str:
-    """Generates an HTML-formatted blog post."""
+    """Generates a blog post (plain text)."""
     return _call_api("blog_post", transcript, model)
 
 def generate_step_by_step_guide(transcript: str, model: str = "gpt-4o") -> str:
-    """Generates a step-by-step guide from the given transcript using the specified model."""
+    """Generates a step-by-step guide (plain text)."""
     return _call_api("step_by_step_guide", transcript, model)
 
 def generate_summary(transcript: str, model: str = "gpt-4o") -> str:
-    """Summarizes the transcript into three bullet points."""
+    """Generates a summary (plain text)."""
     return _call_api("summary", transcript, model)
 
 def generate_educator_plus(transcript: str, model: str = "gpt-4o") -> str:
-    """Generates YouTube Educator Plus output from the given transcript using the specified model."""
+    """Generates educator materials (plain text)."""
     return _call_api("educator_plus", transcript, model)
 
 def get_youtube_transcript(video_id: str) -> str:
     """Fetches transcript text from YouTube video ID."""
     try:
         transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-        transcript_text = ' '.join(item['text'] for item in transcript_list)
+        transcript_text = " ".join(item["text"] for item in transcript_list)
         return transcript_text
     except Exception as e:
         raise ValueError(f"Failed to get transcript for video {video_id}: {str(e)}")
