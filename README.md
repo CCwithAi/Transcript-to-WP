@@ -36,7 +36,7 @@ cd Transcript-to-WP
 ```
 1A. create a virtual environment and run it
 python -m venv venv
-venv\Scripts\activate
+then venv\Scripts\activate
  
 2. Install Python dependencies:
 ```bash
