@@ -103,3 +103,7 @@ The application is a REST API that allows users to retrieve transcripts of YouTu
 *   **User Experience**: Design the UI to be user-friendly for selecting formats and viewing different types of output.
 
 This updated architecture document now includes the planned implementation details for the AI Agent component and the UI integration.
+
+to be done 
+
+So my app works amazing output is perfect ewtc, what I want is to extend it by adding two pages, page 1 wordpress management - place to store usernames url username for the sending of blogs from index.html we need to be able to store 10 sets of data with local persistant windows storage this can work with index.html so any can be populated maybe via a dropdown as opposed to having to type them in so change to the UI in index.html will be needed. the options to delete and add new user details need to be there, edit is not required. other page is to record information everytime a post is sent via api to wordpress post title, post ID, Summary, date, website posted to. again persistant long term memory local.  on index.html there neeeds to be option to post as draft and post live self explanitory. then we will need a 3rd new page this page is going to be perfect for get and list post api calls to worpress so we can A see a list of the titles and dates fpr existing posts, then from this list we can import the post into quill editor, also the option to delete posts.

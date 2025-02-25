@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WordPress Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        input {
+            padding: 8px;
+            width: 80%;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 8px 12px;
+            margin-right: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .folder {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .folder h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        #connectionStatus {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .accounts-table {
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Manage WordPress Accounts</h1>
+    <div>
+        <div class="input-group">
+            <input type="text" id="siteURL" placeholder="WordPress Site URL (e.g., https://example.com)">
+        </div>
+        <div class="input-group">
+            <input type="text" id="username" placeholder="WordPress Username">
+        </div>
+        <div class="input-group">
+            <input type="password" id="password" placeholder="WordPress Application Password">
+        </div>
+        <div class="input-group">
+            <input type="text" id="folderName" placeholder="Folder Name (Optional)">
+        </div>
+        <button onclick="testConnection()">Test Connection</button>
+        <button onclick="addAccount()">Add Account</button>
+    </div>
+    <div id="connectionStatus"></div>
+    <h2>Account Folders</h2>
+    <div id="accountFolders">
+        <!-- Folders will be displayed here -->
+    </div>
+    <h2>Saved Accounts</h2>
+    <table id="accountsTable">
+        <thead>
+            <tr>
+                <th>Site URL</th>
+                <th>Username</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Accounts will be populated here -->
+        </tbody>
+    </table>
+    <br>
+    <button onclick="window.location.href='index.html'">Back to Home</button>
+    <script>
+        function loadAccounts() {
+            const tableBody = document.querySelector('#accountsTable tbody');
+            tableBody.innerHTML = '';
+            const accounts = JSON.parse(localStorage.getItem('wp_accounts') || '[]');
+            accounts.forEach((acc, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${acc.siteURL}</td>
+                                 <td>${acc.username}</td>
+                                 <td><button onclick="deleteAccount(${index})">Delete</button></td>`;
+                tableBody.appendChild(row);
+            });
+        }
+
+        async function testConnection() {
+            const siteURL = document.getElementById('siteURL').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const statusDiv = document.getElementById('connectionStatus');
+            
+            if (!siteURL || !username || !password) {
+                statusDiv.innerHTML = '<p style="color: red;">Please fill in all fields</p>';
+                return;
+            }
+            
+            statusDiv.innerHTML = '<p>Testing connection...</p>';
+            
+            try {
+                const credentials = btoa(`${username}:${password}`);
+                const response = await fetch(`${siteURL}/wp-json/wp/v2/users/me`, {
+                    headers: {
+                        'Authorization': `Basic ${credentials}`
+                    }
+                });
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = '<p style="color: green;">Connection successful!</p>';
+                } else {
+                    statusDiv.innerHTML = '<p style="color: red;">Connection failed. Please check credentials.</p>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<p style="color: red;">Connection failed. Please check the site URL.</p>';
+            }
+        }
+
+        function addAccount() {
+            const siteURL = document.getElementById('siteURL').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const folderName = document.getElementById('folderName').value.trim() || 'Default';
+            
+            if (!siteURL || !username || !password) {
+                alert('Please fill in all required fields.');
+                return;
+            }
+            
+            let accounts = JSON.parse(localStorage.getItem('wp_accounts') || '[]');
+            if (accounts.length >= 10) {
+                alert('Maximum 10 accounts allowed.');
+                return;
+            }
+            
+            accounts.push({ 
+                siteURL, 
+                username, 
+                password,
+                folder: folderName
+            });
+            
+            localStorage.setItem('wp_accounts', JSON.stringify(accounts));
+            loadAccounts();
+            
+            // Clear input fields
+            document.getElementById('siteURL').value = '';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('folderName').value = '';
+        }
+
+        function deleteAccount(index) {
+            let accounts = JSON.parse(localStorage.getItem('wp_accounts') || '[]');
+            accounts.splice(index, 1);
+            localStorage.setItem('wp_accounts', JSON.stringify(accounts));
+            loadAccounts();
+        }
+
+        function loadAccounts() {
+            const accounts = JSON.parse(localStorage.getItem('wp_accounts') || '[]');
+            const folders = {};
+            
+            // Group accounts by folder
+            accounts.forEach((acc, index) => {
+                const folderName = acc.folder || 'Default';
+                if (!folders[folderName]) {
+                    folders[folderName] = [];
+                }
+                folders[folderName].push({...acc, index});
+            });
+            
+            // Create folder display
+            const foldersDiv = document.getElementById('accountFolders');
+            foldersDiv.innerHTML = '';
+            
+            Object.entries(folders).forEach(([folderName, folderAccounts]) => {
+                const folderDiv = document.createElement('div');
+                folderDiv.className = 'folder';
+                folderDiv.innerHTML = `
+                    <h3>${folderName}</h3>
+                    <table class="accounts-table">
+                        <thead>
+                            <tr>
+                                <th>Site URL</th>
+                                <th>Username</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${folderAccounts.map(acc => `
+                                <tr>
+                                    <td>${acc.siteURL}</td>
+                                    <td>${acc.username}</td>
+                                    <td>
+                                        <button onclick="deleteAccount(${acc.index})">Delete</button>
+                                        <button onclick="testExistingConnection(${acc.index})">Test</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                foldersDiv.appendChild(folderDiv);
+            });
+        }
+
+        async function testExistingConnection(index) {
+            const accounts = JSON.parse(localStorage.getItem('wp_accounts') || '[]');
+            const account = accounts[index];
+            if (!account) return;
+            
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.innerHTML = '<p>Testing connection...</p>';
+            
+            try {
+                const credentials = btoa(`${account.username}:${account.password}`);
+                const response = await fetch(`${account.siteURL}/wp-json/wp/v2/users/me`, {
+                    headers: {
+                        'Authorization': `Basic ${credentials}`
+                    }
+                });
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = `<p style="color: green;">Connection successful for ${account.siteURL}!</p>`;
+                } else {
+                    statusDiv.innerHTML = `<p style="color: red;">Connection failed for ${account.siteURL}. Please check credentials.</p>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<p style="color: red;">Connection failed for ${account.siteURL}. Please check the site URL.</p>`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadAccounts);
+    </script>
+</body>
+</html> 

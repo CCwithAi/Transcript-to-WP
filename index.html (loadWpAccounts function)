@@ -1,0 +1,18 @@
+function loadWpAccounts() {
+    const select = document.getElementById('wpAccountDropdown');
+    if (!select) {
+        console.error("wpAccountDropdown element not found.");
+        return;
+    }
+    // Reset the dropdown
+    select.innerHTML = '<option value="">Select WordPress Account</option>';
+    const accounts = JSON.parse(localStorage.getItem('wp_accounts') || '[]');
+    console.log("Loading WP accounts from localStorage:", accounts);
+    accounts.forEach(account => {
+        const option = document.createElement('option');
+        // Preserve formatting including spaces in the password (stored as JSON)
+        option.value = JSON.stringify(account);
+        option.textContent = `${account.siteURL} - ${account.username}`;
+        select.appendChild(option);
+    });
+} 

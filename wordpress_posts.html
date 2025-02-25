@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WordPress Posts</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .input-group {
+            margin-bottom: 10px;
+        }
+        select, button {
+            padding: 8px 12px;
+            margin-right: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .filters input,
+        .filters select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .bulk-actions {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+        #pagination {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #pagination button {
+            margin: 0 10px;
+        }
+        #pageInfo {
+            display: inline-block;
+            padding: 5px 10px;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .status-published {
+            background-color: #28a745;
+            color: white;
+        }
+        .status-draft {
+            background-color: #ffc107;
+            color: black;
+        }
+        .status-scheduled {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .status-pending {
+            background-color: #6c757d;
+            color: white;
+        }
+        .status-private {
+            background-color: #dc3545;
+            color: white;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        tr:hover {
+            background-color: #f2f2f2;
+        }
+        button {
+            margin: 0 4px;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: white;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <h1>WordPress Posts</h1>
+    <div class="input-group">
+        <select id="wpAccountDropdown">
+            <option value="">Select WordPress Account</option>
+        </select>
+        <button onclick="loadWpAccounts()">Reload Accounts</button>
+    </div>
+    <button onclick="fetchPosts()">Fetch Posts</button>
+    <div class="filters">
+        <input type="text" id="searchInput" placeholder="Search posts..." onkeyup="filterPosts()">
+        <select id="statusFilter" onchange="filterPosts()">
+            <option value="">All Statuses</option>
+            <option value="publish">Published</option>
+            <option value="draft">Draft</option>
+            <option value="future">Scheduled</option>
+            <option value="pending">Pending Review</option>
+            <option value="private">Private</option>
+        </select>
+        <select id="dateFilter" onchange="filterPosts()">
+            <option value="">All Dates</option>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+        </select>
+    </div>
+    <div class="bulk-actions">
+        <select id="bulkAction">
+            <option value="">Bulk Actions</option>
+            <option value="delete">Delete Selected</option>
+            <option value="draft">Set to Draft</option>
+            <option value="publish">Publish Selected</option>
+        </select>
+        <button onclick="applyBulkAction()">Apply</button>
+    </div>
+    <table id="wpPostsTable">
+        <thead>
+            <tr>
+                <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Post ID</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div id="pagination">
+        <button onclick="changePage(-1)">Previous</button>
+        <span id="pageInfo">Page 1</span>
+        <button onclick="changePage(1)">Next</button>
+    </div>
+    <br>
+    <button onclick="window.location.href='index.html'">Back to Home</button>
+    <script>
+        function loadWpAccounts() {
+            const select = document.getElementById('wpAccountDropdown');
+            select.innerHTML = '<option value="">Select WordPress Account</option>';
+            const accounts = JSON.parse(localStorage.getItem('wp_accounts') || '[]');
+            accounts.forEach(account => {
+                const option = document.createElement('option');
+                option.value = JSON.stringify(account);
+                option.textContent = `${account.siteURL} - ${account.username}`;
+                select.appendChild(option);
+            });
+        }
+
+        let currentPage = 1;
+        const postsPerPage = 10;
+        let allPosts = [];
+
+        async function fetchPosts() {
+            const select = document.getElementById('wpAccountDropdown');
+            if (!select.value) {
+                alert('Please select a WordPress account.');
+                return;
+            }
+            
+            let account;
+            try {
+                account = JSON.parse(select.value);
+            } catch (e) {
+                alert('Invalid account selected.');
+                return;
+            }
+            
+            const postsTableBody = document.querySelector('#wpPostsTable tbody');
+            postsTableBody.innerHTML = '<tr><td colspan="6">Loading posts...</td></tr>';
+            
+            const credentials = btoa(`${account.username}:${account.password}`);
+            try {
+                const response = await fetch(`${account.siteURL}/wp-json/wp/v2/posts?per_page=100&status=publish,draft,future,pending,private`, {
+                    headers: {
+                        'Authorization': `Basic ${credentials}`
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch posts');
+                
+                allPosts = await response.json(); // Store in global allPosts variable
+                console.log('Fetched posts:', allPosts);
+                
+                // Initial display using the filter system
+                filterPosts();
+                
+            } catch (err) {
+                postsTableBody.innerHTML = '';
+                alert(err.message);
+                console.error('Error fetching posts:', err);
+            }
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'publish':
+                    return 'status-published';
+                case 'draft':
+                    return 'status-draft';
+                case 'future':
+                    return 'status-scheduled';
+                case 'pending':
+                    return 'status-pending';
+                case 'private':
+                    return 'status-private';
+                default:
+                    return '';
+            }
+        }
+
+        function previewPost(url) {
+            window.open(url, '_blank');
+        }
+
+        function filterPosts() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const dateFilter = document.getElementById('dateFilter').value;
+            
+            let filtered = allPosts.filter(post => {
+                const matchesSearch = post.title.rendered.toLowerCase().includes(searchTerm);
+                const matchesStatus = !statusFilter || post.status === statusFilter;
+                const matchesDate = filterByDate(post.date, dateFilter);
+                return matchesSearch && matchesStatus && matchesDate;
+            });
+            
+            displayPosts(filtered);
+        }
+
+        function filterByDate(postDate, filter) {
+            if (!filter) return true;
+            
+            const date = new Date(postDate);
+            const now = new Date();
+            
+            switch(filter) {
+                case 'today':
+                    return date.toDateString() === now.toDateString();
+                case 'week':
+                    const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+                    return date >= weekAgo;
+                case 'month':
+                    return date.getMonth() === now.getMonth() && 
+                           date.getFullYear() === now.getFullYear();
+                default:
+                    return true;
+            }
+        }
+
+        function displayPosts(posts) {
+            const start = (currentPage - 1) * postsPerPage;
+            const end = start + postsPerPage;
+            const pagesPosts = posts.slice(start, end);
+            
+            const tbody = document.querySelector('#wpPostsTable tbody');
+            tbody.innerHTML = pagesPosts.map(post => {
+                const postDate = new Date(post.date);
+                let statusDisplay = post.status;
+                
+                // Enhanced status display
+                if (post.status === 'future') {
+                    statusDisplay = `Scheduled (${postDate.toLocaleDateString()})`;
+                } else if (post.status === 'draft') {
+                    statusDisplay = 'Draft';
+                } else if (post.status === 'publish') {
+                    statusDisplay = 'Published';
+                } else if (post.status === 'pending') {
+                    statusDisplay = 'Pending Review';
+                } else if (post.status === 'private') {
+                    statusDisplay = 'Private';
+                }
+
+                const statusClass = getStatusClass(post.status);
+                const safeTitle = post.title.rendered.replace(/'/g, "\\'");
+                
+                return `
+                    <tr>
+                        <td><input type="checkbox" class="post-select" value="${post.id}"></td>
+                        <td>${post.title.rendered}</td>
+                        <td><span class="status-badge ${statusClass}">${statusDisplay}</span></td>
+                        <td>${postDate.toLocaleString()}</td>
+                        <td>${post.id}</td>
+                        <td>
+                            <button onclick="loadPost(${post.id}, '${safeTitle}')">Edit</button>
+                            <button onclick="deletePost(${post.id})" style="background-color: #dc3545;">Delete</button>
+                            <button onclick="previewPost('${post.link}')" style="background-color: #28a745;">Preview</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            document.getElementById('pageInfo').textContent = 
+                `Page ${currentPage} of ${Math.ceil(posts.length / postsPerPage)}`;
+        }
+
+        function changePage(delta) {
+            const maxPage = Math.ceil(allPosts.length / postsPerPage);
+            currentPage = Math.max(1, Math.min(currentPage + delta, maxPage));
+            filterPosts();
+        }
+
+        function toggleSelectAll() {
+            const checked = document.getElementById('selectAll').checked;
+            document.querySelectorAll('.post-select').forEach(checkbox => {
+                checkbox.checked = checked;
+            });
+        }
+
+        async function applyBulkAction() {
+            const action = document.getElementById('bulkAction').value;
+            if (!action) {
+                alert('Please select an action');
+                return;
+            }
+            
+            const selected = Array.from(document.querySelectorAll('.post-select:checked'))
+                .map(checkbox => checkbox.value);
+            
+            if (selected.length === 0) {
+                alert('Please select at least one post');
+                return;
+            }
+            
+            if (!confirm(`Apply "${action}" to ${selected.length} posts?`)) return;
+            
+            const account = JSON.parse(document.getElementById('wpAccountDropdown').value);
+            const credentials = btoa(`${account.username}:${account.password}`);
+            
+            for (const postId of selected) {
+                try {
+                    if (action === 'delete') {
+                        await fetch(`${account.siteURL}/wp-json/wp/v2/posts/${postId}?force=true`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Basic ${credentials}` }
+                        });
+                    } else {
+                        await fetch(`${account.siteURL}/wp-json/wp/v2/posts/${postId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Basic ${credentials}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ status: action })
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Error processing post ${postId}:`, error);
+                }
+            }
+            
+            alert('Bulk action completed');
+            fetchPosts();
+        }
+
+        function loadPost(postId, title) {
+            const select = document.getElementById('wpAccountDropdown');
+            if (!select.value) {
+                alert('Please select an account.');
+                return;
+            }
+            let account = JSON.parse(select.value);
+            const credentials = btoa(`${account.username}:${account.password}`);
+            fetch(`${account.siteURL}/wp-json/wp/v2/posts/${postId}?_embed`, {
+                headers: {
+                    'Authorization': `Basic ${credentials}`
+                }
+            })
+            .then(response => response.json())
+            .then(post => {
+                const importedPost = {
+                    id: post.id,
+                    title: post.title.rendered,
+                    content: post.content.rendered,
+                    featured_media: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || null
+                };
+                localStorage.setItem('importedPost', JSON.stringify(importedPost));
+                window.location.href = 'index.html';
+            })
+            .catch(err => {
+                alert('Error loading post: ' + err.message);
+            });
+        }
+
+        async function deletePost(postId) {
+            if (!confirm('Are you sure you want to delete this post?')) return;
+            
+            const select = document.getElementById('wpAccountDropdown');
+            let account = JSON.parse(select.value);
+            const credentials = btoa(`${account.username}:${account.password}`);
+            
+            try {
+                const response = await fetch(`${account.siteURL}/wp-json/wp/v2/posts/${postId}?force=true`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Basic ${credentials}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete post');
+                }
+                
+                alert('Post deleted successfully');
+                fetchPosts(); // Refresh the posts list
+            } catch (err) {
+                alert('Error deleting post: ' + err.message);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadWpAccounts();
+            document.getElementById('searchInput').addEventListener('input', filterPosts);
+            
+            // Update status filter options
+            const statusFilter = document.getElementById('statusFilter');
+            statusFilter.innerHTML = `
+                <option value="">All Statuses</option>
+                <option value="publish">Published</option>
+                <option value="draft">Draft</option>
+                <option value="future">Scheduled</option>
+                <option value="pending">Pending Review</option>
+                <option value="private">Private</option>
+            `;
+        });
+    </script>
+</body>
+</html> 

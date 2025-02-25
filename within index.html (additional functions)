@@ -1,0 +1,23 @@
+function loadWpAccounts() {
+    const select = document.getElementById('wpAccountDropdown');
+    select.innerHTML = '<option value="">Select WordPress Account</option>';
+    const accounts = JSON.parse(localStorage.getItem('wp_accounts') || '[]');
+    accounts.forEach(account => {
+        const option = document.createElement('option');
+        option.value = JSON.stringify(account);
+        option.textContent = `${account.siteURL} - ${account.username}`;
+        select.appendChild(option);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadWpAccounts();
+    // Check if an imported post exists (from wordpress_posts.html)
+    const importedPost = localStorage.getItem('importedPost');
+    if (importedPost) {
+        const postData = JSON.parse(importedPost);
+        document.getElementById('postTitle').value = postData.title || '';
+        quill.root.innerHTML = postData.content || '';
+        localStorage.removeItem('importedPost');
+    }
+}); 

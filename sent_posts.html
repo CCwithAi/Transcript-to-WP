@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sent Posts Log</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        button {
+            padding: 8px 12px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sent Posts Log</h1>
+    <table id="postsTable">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Post ID</th>
+                <th>Summary</th>
+                <th>Date</th>
+                <th>Website</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <br>
+    <button onclick="clearLogs()">Clear Logs</button>
+    <button onclick="window.location.href='index.html'">Back to Home</button>
+    <script>
+        function loadSentPosts() {
+            const tbody = document.querySelector('#postsTable tbody');
+            tbody.innerHTML = '';
+            const posts = JSON.parse(localStorage.getItem('sentPosts') || '[]');
+            posts.forEach((post, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${post.title}</td>
+                    <td>${post.postId}</td>
+                    <td>${post.summary}</td>
+                    <td>${new Date(post.date).toLocaleString()}</td>
+                    <td>${post.siteURL}</td>
+                    <td><button onclick="deletePostLog(${index})">Delete</button></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function deletePostLog(index) {
+            let posts = JSON.parse(localStorage.getItem('sentPosts') || '[]');
+            posts.splice(index, 1);
+            localStorage.setItem('sentPosts', JSON.stringify(posts));
+            loadSentPosts();
+        }
+
+        function clearLogs() {
+            if (confirm('Are you sure you want to clear all logs?')) {
+                localStorage.removeItem('sentPosts');
+                loadSentPosts();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadSentPosts);
+    </script>
+</body>
+</html> 

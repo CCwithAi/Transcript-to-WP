@@ -49,35 +49,44 @@ def extract_video_id(url):
 @app.route("/transcript", methods=["POST"])
 def get_transcript():
     try:
-        url = request.json.get("url")
+        url = request.json.get('url')
+        format_type = request.json.get('format', 'raw')  # Get format selection
+        model = request.json.get('model', 'gpt-4o')  # Get model selection
+        
         if not url:
-            return jsonify({"success": False, "error": "URL is required"})
+            return jsonify({'success': False, 'error': 'URL is required'})
 
         video_id = extract_video_id(url)
         if not video_id:
-            return jsonify({"success": False, "error": "Invalid YouTube URL"})
+            return jsonify({'success': False, 'error': 'Invalid YouTube URL'})
 
         transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-        transcript_text = " ".join(item["text"] for item in transcript_list)
+        transcript_text = ' '.join(item['text'] for item in transcript_list)
 
-        format_type = request.json.get("format")
-        model = request.json.get("model")
-
-        if format_type == "blog":
-            result = generate_blog_post(transcript_text, model)
-        elif format_type == "guide":
-            result = generate_step_by_step_guide(transcript_text, model)
-        elif format_type == "summary":
-            result = generate_summary(transcript_text, model)
-        elif format_type == "educator_plus":
-            result = generate_educator_plus(transcript_text, model)
+        # Process the transcript based on format selection
+        if format_type == 'raw':
+            processed_text = transcript_text
+        elif format_type == 'blog':
+            processed_text = generate_blog_post(transcript_text, model)
+        elif format_type == 'guide':
+            processed_text = generate_step_by_step_guide(transcript_text, model)
+        elif format_type == 'summary':
+            processed_text = generate_summary(transcript_text, model)
+        elif format_type == 'educator_plus':
+            processed_text = generate_educator_plus(transcript_text, model)
         else:
-            result = transcript_text  # Default: raw transcript
+            processed_text = transcript_text
 
-        return jsonify({"success": True, "transcript": result})
+        return jsonify({
+            'success': True,
+            'transcript': processed_text
+        })
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 
 @app.route("/post-to-wordpress", methods=["POST"])
@@ -88,81 +97,180 @@ def post_to_wordpress():
         password = data.get("password")
         site_url = data.get("siteURL")
         title = data.get("title")
-        content = data.get("content")  # Get the content (could be JSON or HTML)
+        content = data.get("content")
         status = data.get("status", "draft")
         image_data = data.get("image")
+        categories = data.get("categories", [])
+        tags = data.get("tags", [])
+        scheduled_date = data.get("date")
 
         if not all([username, password, site_url, title, content]):
             return jsonify({"success": False, "error": "Missing required data"}), 400
 
         credentials = f"{username}:{password}"
-        encoded_credentials = base64.b64encode(credentials.encode("utf-8")).decode(
-            "utf-8"
-        )
-
-        # --- Image Upload (if image data is provided) ---
-        featured_media_id = None
-        if image_data:
-            try:
-                media_api_url = f"{site_url}/wp-json/wp/v2/media"
-                headers = {
-                    "Authorization": f"Basic {encoded_credentials}",
-                    "Content-Disposition": f'attachment; filename="{image_data["filename"]}"',
-                    "Content-Type": image_data["mime_type"],
-                }
-                image_binary = base64.b64decode(image_data["data"])
-                media_response = requests.post(
-                    media_api_url, headers=headers, data=image_binary
-                )
-                media_response.raise_for_status()
-                featured_media_id = media_response.json().get("id")
-            except requests.exceptions.RequestException as e:
-                print(f"Image Upload Error: {e}")
-                return (
-                    jsonify({"success": False, "error": f"Image upload failed: {e}"}),
-                    500,
-                )
+        encoded_credentials = base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
 
         # --- WordPress Post Creation ---
         post_api_url = f"{site_url}/wp-json/wp/v2/posts"
         headers = {
             "Authorization": f"Basic {encoded_credentials}",
-            "Content-Type": "application/json",  # Always send JSON to the WP API
+            "Content-Type": "application/json",
         }
 
-        # Prepare post data.  Crucially, 'content' is now handled correctly.
+        # Prepare post data with proper format for WordPress API
+        post_data = {
+            "title": {"rendered": title, "raw": title},
+            "content": {"rendered": content, "raw": content},
+            "status": status,
+        }
+
+        # Add featured media if available
+        if image_data:
+            try:
+                media_api_url = f"{site_url}/wp-json/wp/v2/media"
+                media_headers = {
+                    "Authorization": f"Basic {encoded_credentials}",
+                    "Content-Disposition": f'attachment; filename="{image_data["filename"]}"',
+                    "Content-Type": image_data["mime_type"],
+                }
+                image_binary = base64.b64decode(image_data["data"])
+                media_response = requests.post(media_api_url, headers=media_headers, data=image_binary)
+                media_response.raise_for_status()
+                post_data["featured_media"] = media_response.json().get("id")
+            except Exception as e:
+                print(f"Image Upload Error: {e}")
+
+        # Add categories if provided
+        if categories:
+            try:
+                categories_api_url = f"{site_url}/wp-json/wp/v2/categories"
+                category_ids = []
+                for category_name in categories:
+                    # Try to find existing category
+                    response = requests.get(
+                        f"{categories_api_url}?search={category_name}",
+                        headers=headers
+                    )
+                    existing_categories = response.json()
+                    if existing_categories:
+                        category_ids.append(existing_categories[0]['id'])
+                    else:
+                        # Create new category
+                        response = requests.post(
+                            categories_api_url,
+                            headers=headers,
+                            json={"name": category_name}
+                        )
+                        if response.ok:
+                            category_ids.append(response.json()['id'])
+                if category_ids:
+                    post_data["categories"] = category_ids
+            except Exception as e:
+                print(f"Category Error: {e}")
+
+        # Add tags if provided
+        if tags:
+            try:
+                tags_api_url = f"{site_url}/wp-json/wp/v2/tags"
+                tag_ids = []
+                for tag_name in tags:
+                    # Try to find existing tag
+                    response = requests.get(
+                        f"{tags_api_url}?search={tag_name}",
+                        headers=headers
+                    )
+                    existing_tags = response.json()
+                    if existing_tags:
+                        tag_ids.append(existing_tags[0]['id'])
+                    else:
+                        # Create new tag
+                        response = requests.post(
+                            tags_api_url,
+                            headers=headers,
+                            json={"name": tag_name}
+                        )
+                        if response.ok:
+                            tag_ids.append(response.json()['id'])
+                if tag_ids:
+                    post_data["tags"] = tag_ids
+            except Exception as e:
+                print(f"Tag Error: {e}")
+
+        # Add scheduled date if provided
+        if scheduled_date:
+            post_data["date"] = scheduled_date
+
+        # Create the post
+        response = requests.post(post_api_url, headers=headers, json=post_data)
+        
+        # Print response for debugging
+        print("WordPress API Response:", response.text)
+        
+        response.raise_for_status()
+        post_id = response.json().get("id")
+        
+        return jsonify({"success": True, "postId": post_id}), 201
+
+    except requests.exceptions.RequestException as e:
+        print(f"WordPress API Error: {str(e)}")
+        return jsonify({"success": False, "error": f"WordPress API Error: {str(e)}"}), 500
+    except Exception as e:
+        print(f"Server Error: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/post-to-wordpress/<int:post_id>", methods=["PUT"])
+def update_wordpress_post(post_id):
+    try:
+        data = request.json
+        username = data.get("username")
+        password = data.get("password")
+        site_url = data.get("siteURL")
+        title = data.get("title")
+        content = data.get("content")
+        status = data.get("status", "draft")
+
+        if not all([username, password, site_url, title, content]):
+            return jsonify({"success": False, "error": "Missing required fields"}), 400
+
+        # Create the credentials
+        encoded_credentials = base64.b64encode(
+            f"{username}:{password}".encode()
+        ).decode()
+
+        # Update the post
+        post_api_url = f"{site_url}/wp-json/wp/v2/posts/{post_id}"
+        headers = {
+            "Authorization": f"Basic {encoded_credentials}",
+            "Content-Type": "application/json",
+        }
+
         post_data = {
             "title": title,
-            "status": status,
-            "featured_media": featured_media_id,
+            "content": content,
+            "status": status
         }
-
-        # Check if content is JSON (from blog or guide)
-        if isinstance(content, str):
-            try:
-                content_json = json.loads(content)  # Try to parse as JSON
-                if "blocks" in content_json:
-                    # Convert blocks to serialized string format
-                    serialized_blocks = ""
-                    for block in content_json["blocks"]:
-                        serialized_blocks += block_to_html_comment(block) + "\n"
-                    post_data["content"] = serialized_blocks
-                else:
-                    post_data["content"] = content  # It was probably plain text
-            except json.JSONDecodeError:
-                post_data["content"] = content  # It wasn't JSON, treat as HTML
-        else:  #If not string format, assume its plain text
-             post_data["content"] = content
 
         response = requests.post(post_api_url, headers=headers, json=post_data)
         response.raise_for_status()
 
-        post_id = response.json().get("id")
-        return jsonify({"success": True, "postId": post_id}), 201
+        return jsonify({
+            "success": True,
+            "postId": response.json().get("id")
+        }), 200
 
+    except requests.exceptions.RequestException as e:
+        print(f"WordPress API Error: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to update WordPress post: {str(e)}"
+        }), 500
     except Exception as e:
         print(f"Server Error: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({
+            "success": False,
+            "error": f"Server error: {str(e)}"
+        }), 500
 
 
 def block_to_html_comment(block):

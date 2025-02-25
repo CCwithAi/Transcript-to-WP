@@ -2,9 +2,10 @@
 <html>
 <head>
     <title>CCwithAI YouTube Transcript Repurposing</title>
+    <!-- Add Quill dependencies -->
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
     <style>
-        /* ... (Your existing CSS styles - no changes needed here) ... */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             max-width: 800px;
@@ -62,32 +63,19 @@
             background: #ccc;
             cursor: not-allowed;
         }
-
-        /* --- Quill-Specific Styles --- */
-        #editor-container {
-            width: 100%;
-            margin-top: 15px; /* Space below the WP credentials */
-        }
-
         #transcript {
             width: 100%;
             min-height: 200px;
             border: 1px solid #ccc;
             border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-top: 20px;
+            background: #f5f5f5;
+            white-space: pre-wrap;
             font-size: 1em;
             color: #333;
-            /* No padding here - Quill handles it */
-            box-sizing: border-box; /* Important for consistent sizing */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-
-        #transcript .ql-editor {
-            padding: 12px; /* Padding *inside* the editor */
-            box-sizing: border-box;
-            font-family: inherit;
-            font-size: inherit;
-        }
-
         .error {
             color: red;
             margin: 15px 0;
@@ -99,14 +87,6 @@
         }
         #copyBtn:hover {
             background: #218838;
-        }
-        #postToWpBtn {
-            margin-top: 15px;
-            background: #4CAF50; /* Green color */
-        }
-
-        #postToWpBtn:hover {
-            background: #367c39;
         }
         .banner {
             width: 100%;
@@ -129,13 +109,38 @@
         .banner img:hover {
             transform: scale(1.09);
         }
+        #editor-container {
+            margin-top: 42px;
+            height: auto;
+            min-height: 200px;
+        }
+        .ql-editor {
+            min-height: 200px;
+        }
+        /* Add Quill specific styles */
+        .ql-toolbar.ql-snow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: white;
+            border-top: none !important;
+            padding: 8px 15px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
     <div class="banner">
-        <img src="images/photostudio_1733259578300.jpeg" alt="Banner Image">  </div>
+        <img src="images/photostudio_1733259578300.jpeg" alt="Banner Image">
+    </div>
     <div class="header">
-        <img src="images/ccailogoblackbackground.png" alt="CCwithAI Logo">  <h1>CCwithAI Transcript Repurposing</h1>
+        <img src="images/ccailogoblackbackground.png" alt="CCwithAI Logo">
+        <h1>CCwithAI Transcript Repurposing</h1>
     </div>
     <div class="input-group">
         <input type="text" id="url" placeholder="Enter YouTube URL">
@@ -150,67 +155,158 @@
             <option value="gpt-4o">GPT-4o</option>
             <option value="deepseek-r1-distill-llama-70b">DeepSeek R1 70B</option>
             <option value="llama-3-70b-versatile">Llama 3 70b Versatile</option>
-            <option value="gemini">Gemini 2.0 Pro Exp 02-05</option> </select>
+            <option value="gemini">Gemini 2.0 Pro Exp 02-05</option>
+        </select>
         <button onclick="getTranscript()" id="fetchBtn">Get Transcript</button>
     </div>
 
     <div class="input-group">
-        <input type="text" id="wpUsername" placeholder="WordPress Username">
-        <input type="password" id="wpPassword" placeholder="WordPress Application Password">
-        <input type="text" id="wpSiteURL" placeholder="WordPress Site URL (e.g., https://example.com)">
-        <button onclick="savePost()" id="savePostBtn" disabled>Save Post</button>
-        <button onclick="postToWordPress()" id="postToWpBtn" disabled>Post to WordPress</button>  </div>
-
-      <div class="input-group">
+        <!-- WordPress Account Dropdown and Management Link -->
+        <select id="wpAccountDropdown">
+            <option value="">Select WordPress Account</option>
+        </select>
+        <button onclick="window.location.href='wordpress_management.html'">Manage WP Accounts</button>
+        <button onclick="window.location.href='wordpress_posts.html'">Manage WP Posts</button>
+    </div>
+    <div class="input-group">
+        <label for="postStatus">Post Status:</label>
+        <select id="postStatus">
+            <option value="draft">Draft</option>
+            <option value="publish">Live</option>
+        </select>
+    </div>
+    <div class="input-group">
          <input type="text" id="postTitle" placeholder="Enter Post Title">
+         <input type="hidden" id="postId" value="">
     </div>
 
     <div class="input-group">
         <input type="file" id="featuredImage" accept="image/*">
     </div>
 
+    <div class="input-group">
+        <select id="postTemplate">
+            <option value="">Select Template (Optional)</option>
+            <option value="default">Default Template</option>
+            <option value="review">Product Review</option>
+            <option value="tutorial">Tutorial</option>
+            <option value="news">News Article</option>
+        </select>
+        <button onclick="saveAsTemplate()">Save Current as Template</button>
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="postCategories" placeholder="Categories (comma-separated)">
+        <input type="text" id="postTags" placeholder="Tags (comma-separated)">
+    </div>
+
+    <div class="input-group">
+        <select id="schedulingOption">
+            <option value="immediate">Publish Immediately</option>
+            <option value="schedule">Schedule Post</option>
+        </select>
+        <input type="datetime-local" id="scheduleDateTime" style="display: none;">
+    </div>
+
+    <div class="button-group">
+        <button onclick="savePost()" id="savePostBtn" disabled>Save Post</button>
+        <button onclick="updatePost()" id="updatePostBtn" style="display: none;">Update Post</button>
+    </div>
 
     <div id="error" class="error"></div>
 
     <div id="editor-container">
-        <div id="transcript"></div>
+        <div id="editor"></div>
     </div>
 
     <button onclick="copyTranscript()" id="copyBtn">Copy Transcript</button>
 
-    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-
     <script>
-// Initialize Quill
-        var quill = new Quill('#transcript', {
-            theme: 'snow',
-            modules: {
-                toolbar: [
-                    ['bold', 'italic', 'underline', 'strike'],
-                    ['blockquote', 'code-block'],
-                    [{ 'header': 1 }, { 'header': 2 }],
-                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                    [{ 'script': 'sub'}, { 'script': 'super' }],
-                    [{ 'indent': '-1'}, { 'indent': '+1' }],
-                    [{ 'direction': 'rtl' }],
-                    [{ 'size': ['small', false, 'large', 'huge'] }],
-                    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-                    [{ 'color': [] }, { 'background': [] }],
-                    [{ 'font': [] }],
-                    [{ 'align': [] }],
-                    ['clean'],
-                    ['link', 'image', 'video']
-                ]
+        //# sourceMappingURL=app.js.map
+        // Initialize Quill editor after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            window.quill = new Quill('#editor', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        ['blockquote', 'code-block'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        [{ 'indent': '-1'}, { 'indent': '+1' }],
+                        ['clean']
+                    ]
+                },
+                placeholder: 'Transcript will appear here...'
+            });
+            
+            // Enable save button when text is added to editor
+            quill.on('text-change', function() {
+                console.log('Text changed in editor');
+                checkSaveButtonState();
+            });
+            
+            // Add event listeners for other inputs
+            document.getElementById('postTitle').addEventListener('input', function() {
+                console.log('Title changed');
+                checkSaveButtonState();
+            });
+            
+            document.getElementById('wpAccountDropdown').addEventListener('change', function() {
+                console.log('Account selection changed');
+                checkSaveButtonState();
+            });
+            
+            loadWpAccounts();
+            loadTemplates();
+            
+            // Initial check of save button state
+            checkSaveButtonState();
+            
+            // Check for imported post
+            const importedPost = localStorage.getItem('importedPost');
+            if (importedPost) {
+                const postData = JSON.parse(importedPost);
+                document.getElementById('postTitle').value = postData.title || '';
+                document.getElementById('postId').value = postData.id || '';
+                quill.root.innerHTML = postData.content || '';
+                document.getElementById('savePostBtn').style.display = 'none';
+                document.getElementById('updatePostBtn').style.display = 'inline-block';
+                localStorage.removeItem('importedPost');
             }
         });
 
+        function checkSaveButtonState() {
+            const saveBtn = document.getElementById('savePostBtn');
+            const accountSelected = document.getElementById('wpAccountDropdown').value !== "";
+            const titleEntered = document.getElementById('postTitle').value.trim() !== "";
+            const contentEntered = quill.getText().trim() !== "";
+            
+            // Log the state for debugging
+            console.log('Button State Check:', {
+                accountSelected,
+                titleEntered,
+                contentEntered
+            });
+            
+            // Enable button if all required fields are filled
+            saveBtn.disabled = !(accountSelected && titleEntered && contentEntered);
+            
+            // Update button style based on state
+            if (saveBtn.disabled) {
+                saveBtn.style.backgroundColor = '#ccc';
+                saveBtn.style.cursor = 'not-allowed';
+            } else {
+                saveBtn.style.backgroundColor = '#007bff';
+                saveBtn.style.cursor = 'pointer';
+            }
+        }
+
+        // Update the getTranscript function
         async function getTranscript() {
             const url = document.getElementById('url').value;
             const button = document.getElementById('fetchBtn');
             const error = document.getElementById('error');
-            const postToWpBtn = document.getElementById('postToWpBtn');
-            const savePostBtn = document.getElementById('savePostBtn');
-
 
             if (!url) {
                 error.textContent = 'Please enter a YouTube URL';
@@ -220,25 +316,25 @@
             button.disabled = true;
             button.textContent = 'Fetching...';
             error.textContent = '';
-            postToWpBtn.disabled = true;
-            savePostBtn.disabled = true;
+            quill.setContents([]);
 
             try {
-                const modelValue = document.getElementById('model').value;
                 const response = await fetch('http://localhost:5000/transcript', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ url, format: document.getElementById('format').value, model: modelValue })
+                    body: JSON.stringify({ 
+                        url,
+                        format: document.getElementById('format').value,
+                        model: document.getElementById('model').value
+                    })
                 });
 
                 const data = await response.json();
                 if (data.success) {
-                    quill.root.innerHTML = data.transcript; // Set the HTML content
-                    postToWpBtn.disabled = false;
-                    savePostBtn.disabled = false;
-
+                    quill.setContents([{ insert: data.transcript + '\n' }]);
+                    checkSaveButtonState(); // Check button state after content is loaded
                 } else {
                     error.textContent = data.error || 'Failed to fetch transcript';
                 }
@@ -250,10 +346,9 @@
             }
         }
 
-
-
+        // Update the copyTranscript function to use Quill
         async function copyTranscript() {
-            const transcriptText = quill.getText();  // Use getText() for plain text
+            const transcriptText = quill.getText();
             try {
                 await navigator.clipboard.writeText(transcriptText);
                 const copyButton = document.getElementById('copyBtn');
@@ -265,19 +360,35 @@
                 console.error('Failed to copy: ', err);
             }
         }
+
+        // Update the savePost function to use Quill
         async function savePost() {
-            const wpUsername = document.getElementById('wpUsername').value;
-            const wpPassword = document.getElementById('wpPassword').value;
-            const wpSiteURL = document.getElementById('wpSiteURL').value;
+            const accountSelect = document.getElementById('wpAccountDropdown');
             const postTitle = document.getElementById('postTitle').value;
             const featuredImageInput = document.getElementById('featuredImage');
             const error = document.getElementById('error');
             const savePostBtn = document.getElementById('savePostBtn');
-            const format = document.getElementById('format').value; // Get selected format
+            const postStatus = document.getElementById('postStatus').value;
+            const categories = document.getElementById('postCategories').value;
+            const tags = document.getElementById('postTags').value;
+            const schedulingOption = document.getElementById('schedulingOption').value;
+            const scheduleDateTime = document.getElementById('scheduleDateTime').value;
 
+            if (!accountSelect.value) {
+                error.textContent = 'Please select a WordPress account from the dropdown.';
+                return;
+            }
 
-            if (!wpUsername || !wpPassword || !wpSiteURL || !postTitle) {
-                error.textContent = 'Please fill in all WordPress credentials and the post title.';
+            let accountData;
+            try {
+                accountData = JSON.parse(accountSelect.value);
+            } catch (e) {
+                error.textContent = 'Invalid WordPress account selected.';
+                return;
+            }
+
+            if (!postTitle) {
+                error.textContent = 'Please enter a post title.';
                 return;
             }
 
@@ -297,52 +408,80 @@
                     imageData = await fileToBase64(imageFile);
                 }
 
-              //get the model again
-               const modelValue = document.getElementById('model').value;
-               const url = document.getElementById('url').value;
+                // Get content from Quill editor and ensure proper formatting
+                const content = quill.root.innerHTML;
+                
+                // Prepare post data
+                const postData = {
+                    username: accountData.username,
+                    password: accountData.password,
+                    siteURL: accountData.siteURL,
+                    title: postTitle,
+                    content: content,
+                    status: postStatus,
+                    image: imageData
+                };
 
-                // Get Quill's HTML content *only for non-block formats*
-                let postContent = quill.root.innerHTML;
+                // Add categories if provided
+                if (categories.trim()) {
+                    postData.categories = categories.split(',').map(cat => cat.trim()).filter(cat => cat);
+                }
+
+                // Add tags if provided
+                if (tags.trim()) {
+                    postData.tags = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+                }
+
+                // Handle scheduling
+                if (schedulingOption === 'schedule' && scheduleDateTime) {
+                    postData.date = new Date(scheduleDateTime).toISOString();
+                }
+
+                console.log('Sending post data:', postData); // Debug log
 
                 const response = await fetch('http://localhost:5000/post-to-wordpress', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        username: wpUsername,
-                        password: wpPassword,
-                        siteURL: wpSiteURL,
-                        title: postTitle,
-                        content: postContent, // Send HTML or plain text
-                        status: 'draft',
-                        image: imageData,
-                        format: format,
-                    })
+                    body: JSON.stringify(postData)
                 });
 
                 const data = await response.json();
+                console.log('Server response:', data); // Debug log
 
                 if (data.success) {
                     error.textContent = `Post created! Post ID: ${data.postId}`;
+                    
+                    // Record the post in sent posts log
+                    let sentPosts = JSON.parse(localStorage.getItem('sentPosts') || '[]');
+                    const fullText = quill.getText();
+                    const postSummary = fullText.substring(0, 150) + (fullText.length > 150 ? "..." : "");
+                    
+                    sentPosts.push({
+                        title: postTitle,
+                        postId: data.postId,
+                        summary: postSummary,
+                        date: new Date().toISOString(),
+                        siteURL: accountData.siteURL
+                    });
+                    localStorage.setItem('sentPosts', JSON.stringify(sentPosts));
+                    
                 } else {
                     error.textContent = data.error || 'Failed to post to WordPress';
                 }
             } catch (err) {
-                error.textContent = 'Error connecting to server';
-                console.error(err);
+                error.textContent = 'Error connecting to server: ' + err.message;
+                console.error('Post error:', err);
             } finally {
                 savePostBtn.disabled = false;
                 savePostBtn.textContent = 'Save Post';
             }
         }
 
-
-
         async function postToWordPress(){
           alert("Please use the save functionality.")
         }
-
 
         // Helper function to convert a File object to a Base64 string (and get filename/type)
         function fileToBase64(file) {
@@ -357,6 +496,127 @@
                 reader.onerror = error => reject(error);
             });
         }
+
+        // Function to load WordPress accounts into dropdown
+        function loadWpAccounts() {
+            const select = document.getElementById('wpAccountDropdown');
+            if (!select) {
+                console.error("wpAccountDropdown element not found.");
+                return;
+            }
+            // Reset the dropdown
+            select.innerHTML = '<option value="">Select WordPress Account</option>';
+            const accounts = JSON.parse(localStorage.getItem('wp_accounts') || '[]');
+            console.log("Loading WP accounts from localStorage:", accounts); // Debug log
+            accounts.forEach(account => {
+                const option = document.createElement('option');
+                option.value = JSON.stringify(account);
+                option.textContent = `${account.siteURL} - ${account.username}`;
+                select.appendChild(option);
+            });
+        }
+
+        async function updatePost() {
+            const accountSelect = document.getElementById('wpAccountDropdown');
+            const postTitle = document.getElementById('postTitle').value;
+            const postId = document.getElementById('postId').value;
+            const error = document.getElementById('error');
+            const updatePostBtn = document.getElementById('updatePostBtn');
+            const postStatus = document.getElementById('postStatus').value;
+
+            if (!accountSelect.value) {
+                error.textContent = 'Please select a WordPress account from the dropdown.';
+                return;
+            }
+
+            let accountData;
+            try {
+                accountData = JSON.parse(accountSelect.value);
+            } catch (e) {
+                error.textContent = 'Invalid WordPress account selected.';
+                return;
+            }
+
+            updatePostBtn.disabled = true;
+            updatePostBtn.textContent = 'Updating...';
+            error.textContent = '';
+
+            try {
+                const content = quill.root.innerHTML;
+                
+                const response = await fetch(`http://localhost:5000/post-to-wordpress/${postId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: accountData.username,
+                        password: accountData.password,
+                        siteURL: accountData.siteURL,
+                        title: postTitle,
+                        content: content,
+                        status: postStatus
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    error.textContent = 'Post updated successfully!';
+                } else {
+                    error.textContent = data.error || 'Failed to update post';
+                }
+            } catch (err) {
+                error.textContent = 'Error connecting to server';
+                console.error(err);
+            } finally {
+                updatePostBtn.disabled = false;
+                updatePostBtn.textContent = 'Update Post';
+            }
+        }
+
+        function saveAsTemplate() {
+            const templateName = prompt("Enter template name:");
+            if (!templateName) return;
+            
+            const templates = JSON.parse(localStorage.getItem('post_templates') || '{}');
+            templates[templateName] = {
+                content: quill.root.innerHTML,
+                categories: document.getElementById('postCategories').value,
+                tags: document.getElementById('postTags').value
+            };
+            localStorage.setItem('post_templates', JSON.stringify(templates));
+            
+            // Refresh template dropdown
+            loadTemplates();
+        }
+
+        function loadTemplates() {
+            const select = document.getElementById('postTemplate');
+            const templates = JSON.parse(localStorage.getItem('post_templates') || '{}');
+            
+            // Keep default options
+            select.innerHTML = `
+                <option value="">Select Template (Optional)</option>
+                <option value="default">Default Template</option>
+                <option value="review">Product Review</option>
+                <option value="tutorial">Tutorial</option>
+                <option value="news">News Article</option>
+            `;
+            
+            // Add custom templates
+            Object.keys(templates).forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+        }
+
+        // Add scheduling visibility toggle
+        document.getElementById('schedulingOption').addEventListener('change', function() {
+            document.getElementById('scheduleDateTime').style.display = 
+                this.value === 'schedule' ? 'block' : 'none';
+        });
     </script>
 </body>
 </html>

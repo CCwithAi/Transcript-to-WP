@@ -1,0 +1,24 @@
+document.addEventListener('DOMContentLoaded', function() {
+    loadWpAccounts();
+    // Check if an imported post exists (from wordpress_posts.html)
+    const importedPost = localStorage.getItem('importedPost');
+    if (importedPost) {
+        const postData = JSON.parse(importedPost);
+        document.getElementById('postTitle').value = postData.title || '';
+        quill.root.innerHTML = postData.content || '';
+        localStorage.removeItem('importedPost');
+    }
+});
+
+// Listen for storage changes so that if wp_accounts is updated in another tab/window,
+// the dropdown automatically refreshes.
+window.addEventListener('storage', function(e) {
+    if (e.key === 'wp_accounts') {
+        loadWpAccounts();
+    }
+});
+
+// Additionally, refresh the WP accounts when the window regains focus.
+window.addEventListener('focus', function() {
+    loadWpAccounts();
+}); 

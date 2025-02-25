@@ -1,0 +1,15 @@
+<div class="input-group">
+    <!-- WordPress Account Dropdown and Management Link -->
+    <select id="wpAccountDropdown">
+        <option value="">Select WordPress Account</option>
+    </select>
+    <button onclick="window.location.href='wordpress_management.html'">Manage WP Accounts</button>
+</div>
+<div class="input-group">
+    <label for="postStatus">Post Status:</label>
+    <select id="postStatus">
+        <option value="draft">Draft</option>
+        <option value="publish">Live</option>
+    </select>
+</div>
+<button onclick="savePost()" id="savePostBtn" disabled>Save Post</button> 
