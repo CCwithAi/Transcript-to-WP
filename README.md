@@ -155,7 +155,7 @@ subject to the following conditions:
    - Attribution to the original project is required if any part of the code is used
      in other projects (with permission)
 
-For commercial use, redistribution, or other permissions, please contact: [Your Contact Information]
+For commercial use, redistribution, or other permissions, please contact: [info@ccwithai.com]
 
 ## Contributing
 
