@@ -116,13 +116,46 @@ Transcript-to-WP/
 ## Security Notes
 
 - Never commit your `.env` file
-- Use application passwords for WordPress
+- Use application passwords for WordPress:
+  - Create new application passwords monthly for enhanced security
+  - Delete old application passwords after creating new ones
+  - Never share or reuse application passwords
 - Store credentials securely
 - Follow WordPress security best practices
+- Enable two-factor authentication where possible
+- Regularly check WordPress access logs for suspicious activity
 
 ## License
 
-[Your chosen license]
+Copyright (c) 2024 CCwithAI
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software, to use the software for personal and non-commercial purposes,
+subject to the following conditions:
+
+1. **Usage Restrictions**:
+   - This software may not be redistributed without explicit permission
+   - Commercial use requires prior written permission from the copyright holder
+   - Modifications are allowed for personal use only
+
+2. **No Warranty**:
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+   CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+   OR OTHER DEALINGS IN THE SOFTWARE.
+
+3. **Disclaimer**:
+   - The creators and contributors are not responsible for any loss or damage
+     incurred from using this application
+   - Users are responsible for their own API keys and WordPress credentials
+   - Users should comply with all third-party service terms and conditions
+
+4. **Attribution**:
+   - Attribution to the original project is required if any part of the code is used
+     in other projects (with permission)
+
+For commercial use, redistribution, or other permissions, please contact: [Your Contact Information]
 
 ## Contributing
 
