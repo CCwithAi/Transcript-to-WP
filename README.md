@@ -34,7 +34,10 @@ A web application that converts YouTube transcripts into professional blog posts
 git clone https://github.com/yourusername/Transcript-to-WP.git
 cd Transcript-to-WP
 ```
-
+1A. create a virtual environment and run it
+python -m venv venv
+venv\Scripts\activate
+ 
 2. Install Python dependencies:
 ```bash
 pip install -r requirements.txt
